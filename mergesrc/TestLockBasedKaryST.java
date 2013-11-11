@@ -86,8 +86,8 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 				arrayOfThreads[i].join();
 				System.out.println("Thread " + i + " is done");
 			}
-			//obj.printPreorder(ConcurrentKaryST.grandParentHead);
-			//obj.printOnlyKeysPreorder(ConcurrentKaryST.grandParentHead);
+			//obj.printPreorder(LockBasedKaryST.grandParentHead);
+			//obj.printOnlyKeysPreorder(LockBasedKaryST.grandParentHead);
 			obj.nodeCount(LockBasedKaryST.grandParentHead);
 			System.out.println(LockBasedKaryST.nodeCount);
 		}
