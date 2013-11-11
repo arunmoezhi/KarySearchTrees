@@ -9,8 +9,8 @@ public class LockBasedKaryST
 	static Node parentHead;
 	static LockBasedKaryST obj;
 	static long nodeCount=0;
-	FileOutputStream outf;
-	PrintStream out;
+	static FileOutputStream outf;
+	static PrintStream out;
 	public LockBasedKaryST()
 	{
 		try 
@@ -22,6 +22,18 @@ public class LockBasedKaryST
 		{
 			e.printStackTrace();
 		}
+	}
+	
+	public final void lock(Node node)
+	{
+		while(!node.isLocked.compareAndSet(false, true))
+		{	
+		}
+	}
+	
+	public final void unlock(Node node)
+	{
+		node.isLocked.set(false);     
 	}
 
 	public final long lookup(Node node, long target)
@@ -111,9 +123,9 @@ public class LockBasedKaryST
 				}
 			}
 
-			//lock the parent
+			lock(pnode);
 			//check if parent still pointing to leaf
-			if(pnode.childrenArray[nthChild] == node) //and parent is unmarked
+			if(nthChild > -1 && pnode.childrenArray[nthChild] == node) //and parent is unmarked
 			{
 				if(node.keys == null) //special node is reached
 				{
@@ -126,6 +138,7 @@ public class LockBasedKaryST
 					keys[0] = insertKey;
 					pnode.childrenArray[nthChild] = new Node(keys,"leafNode");
 					//unlock parent
+					unlock(pnode);
 					return;
 				}
 				else //leaf node is reached
@@ -137,8 +150,9 @@ public class LockBasedKaryST
 							if(insertKey == node.keys[i])
 							{
 								//key is already found
-								out.println(threadId  + " " + insertKey + " is already found");
+								//out.println(threadId  + " " + insertKey + " is already found");
 								//unlock parent
+								unlock(pnode);
 								return;
 							}
 						}
@@ -154,6 +168,7 @@ public class LockBasedKaryST
 						out.println(threadId  + "Non Full Leaf Node - Trying simple insert for " + insertKey);
 						node.keys[emptySlotId] = insertKey;
 						//unlock parent
+						unlock(pnode);
 						return;
 					}
 					else
@@ -204,6 +219,7 @@ public class LockBasedKaryST
 						}
 						pnode.childrenArray[nthChild] = replaceNode;
 						//unlock parent
+						unlock(pnode);
 						return;
 					}
 				}
@@ -211,6 +227,7 @@ public class LockBasedKaryST
 			else
 			{
 				//unlock parent
+				unlock(pnode);
 			}
 		}
 	}

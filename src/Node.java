@@ -1,3 +1,5 @@
+import java.util.concurrent.atomic.AtomicBoolean;
+
 
 public class Node
 {
@@ -6,7 +8,7 @@ public class Node
 	public static final int NUM_OF_CHILDREN_FOR_A_NODE= K;
 	long keys[];
 	Node[] childrenArray;
-	boolean isLocked;
+	AtomicBoolean isLocked;
 
 	public Node()
 	{
@@ -21,7 +23,7 @@ public class Node
 		}
 		if(nodeType.equalsIgnoreCase("internalNode"))
 		{
-			this.isLocked = false;
+			this.isLocked = new AtomicBoolean(false);
 			childrenArray = new Node[NUM_OF_CHILDREN_FOR_A_NODE];
 			for(int i=0;i<NUM_OF_CHILDREN_FOR_A_NODE;i++)
 			{
