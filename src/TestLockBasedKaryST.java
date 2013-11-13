@@ -8,7 +8,7 @@ import java.util.StringTokenizer;
 public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 {
 	int threadId;
-	public static final int NUM_OF_THREADS=3;
+	public static int NUM_OF_THREADS;
 
 	public TestLockBasedKaryST(int threadId)
 	{
@@ -23,7 +23,7 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 		FileInputStream fs;
 		try
 		{
-			fs = new FileInputStream("in" + fileNumber + ".txt");
+			fs = new FileInputStream("../input/in" + fileNumber + ".txt");
 			DataInputStream ds = new DataInputStream(fs);
 			BufferedReader reader = new BufferedReader(new InputStreamReader(ds));
 			while(!(in = reader.readLine()).equalsIgnoreCase("quit"))
@@ -40,7 +40,7 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 				}
 				else if(operation.equalsIgnoreCase("Delete"))
 				{
-					///obj.delete(parentHead,grandParentHead,Long.parseLong(st.nextToken()),threadId);
+					obj.delete(parentHead,grandParentHead,Long.parseLong(st.nextToken()),threadId);
 				}
 
 			}
@@ -60,31 +60,31 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 
 	public static void main(String[] args)
 	{
-
+		NUM_OF_THREADS = Integer.parseInt(args[0]);
 		try
 		{
 			obj = new LockBasedKaryST();
 			obj.createHeadNodes();
 
-			Thread[] arrayOfThreads = new Thread[NUM_OF_THREADS];
+			Thread[] arrayOfThreads = new Thread[NUM_OF_THREADS+1];
 
 			arrayOfThreads[0] = new Thread(  new TestLockBasedKaryST(0)); //just inserts - initial array
 			arrayOfThreads[0].start();
 			arrayOfThreads[0].join();
-			System.out.println("Thread " + 0 + " is done");
+			//System.out.println("Thread " + 0 + " is done");
 
 
-			for(int i=1;i<NUM_OF_THREADS;i++)
+			for(int i=1;i<=NUM_OF_THREADS;i++)
 			{
 				arrayOfThreads[i] = new Thread(  new TestLockBasedKaryST(i));
 				arrayOfThreads[i].start();
 			}
 
 
-			for(int i=1;i<NUM_OF_THREADS;i++)
+			for(int i=1;i<=NUM_OF_THREADS;i++)
 			{
 				arrayOfThreads[i].join();
-				System.out.println("Thread " + i + " is done");
+				//System.out.println("Thread " + i + " is done");
 			}
 			//obj.printPreorder(LockBasedKaryST.grandParentHead);
 			//obj.printOnlyKeysPreorder(LockBasedKaryST.grandParentHead);
