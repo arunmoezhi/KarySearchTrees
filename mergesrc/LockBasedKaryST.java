@@ -23,14 +23,14 @@ public class LockBasedKaryST
 			e.printStackTrace();
 		}
 	}
-	
+
 	public final void lock(Node node)
 	{
 		while(!node.isLocked.compareAndSet(false, true))
 		{	
 		}
 	}
-	
+
 	public final void unlock(Node node)
 	{
 		node.isLocked.set(false);     
@@ -125,7 +125,7 @@ public class LockBasedKaryST
 
 			lock(pnode);
 			//check if parent still pointing to leaf
-			if(nthChild > -1 && pnode.childrenArray[nthChild] == node) //and parent is unmarked
+			if(nthChild > -1 && pnode.childrenArray[nthChild] == node && !pnode.isMarked) //and parent is unmarked
 			{
 				if(node.keys == null) //special node is reached
 				{
@@ -165,7 +165,7 @@ public class LockBasedKaryST
 
 					if(!isLeafFull)
 					{
-						out.println(threadId  + "Non Full Leaf Node - Trying simple insert for " + insertKey);
+						//out.println(threadId  + "Non Full Leaf Node - Trying simple insert for " + insertKey);
 						node.keys[emptySlotId] = insertKey;
 						//unlock parent
 						unlock(pnode);
@@ -227,6 +227,157 @@ public class LockBasedKaryST
 			else
 			{
 				//unlock parent
+				unlock(pnode);
+			}
+		}
+	}
+
+	public final void delete(Node proot, Node gproot, long deleteKey, int threadId)
+	{
+		boolean ltLastKey;
+		boolean keyFound;
+		int keyIndex;
+		int nthChild;
+		int nthParent;
+		int atleast2Keys;
+		Node node;
+		Node pnode;
+		Node gpnode;
+		while(true)
+		{
+			ltLastKey=false;
+			keyFound=false;
+			keyIndex=-1;
+			nthChild=-1;
+			nthParent=-1;
+			atleast2Keys=0;
+			pnode=proot;
+			gpnode=gproot;
+			node=proot.childrenArray[0];
+
+			while(node.childrenArray !=null) //loop until a leaf or special node is reached
+			{
+				ltLastKey=false;
+
+				for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+				{
+					if(deleteKey < node.keys[i])
+					{
+						ltLastKey = true;
+						gpnode = pnode;
+						pnode = node;
+						node = node.childrenArray[i];
+						break;
+					}
+				}
+				if(!ltLastKey)
+				{
+					gpnode=pnode;
+					pnode = node;
+					node = node.childrenArray[Node.NUM_OF_KEYS_IN_A_NODE];
+				}
+			}
+
+			for(int i =0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++) //get the child id w.r.t the parent
+			{
+				if(pnode.childrenArray[i] == node)
+				{
+					nthChild = i;
+					break;
+				}
+			}
+			for(int i =0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++) //get the parent id w.r.t the grandparent
+			{
+				if(gpnode.childrenArray[i] == pnode)
+				{
+					nthParent = i;
+					break;
+				}
+			}
+
+			lock(gpnode);
+			lock(pnode);
+			//check if parent still pointing to leaf & gp still pointing to p
+			if(nthChild > -1  && nthParent > -1 && gpnode.childrenArray[nthParent] == pnode && pnode.childrenArray[nthChild] == node && !pnode.isMarked) //and parent is unmarked
+			{
+				if(node.keys == null) //special node is reached. Delete key is not present
+				{
+					//unlock gp & p
+					unlock(gpnode);
+					unlock(pnode);
+					return;
+				}
+				else //leaf node is reached
+				{
+					for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+					{
+						if(node.keys[i] > 0)
+						{
+							atleast2Keys++;
+						}
+						if(deleteKey == node.keys[i])
+						{
+							
+							keyFound=true;
+							keyIndex=i;
+						}
+					}
+					if(keyFound)
+					{
+						if(atleast2Keys > 1) //simple delete
+						{
+							node.keys[keyIndex] = 0;
+							unlock(gpnode);
+							unlock(pnode);
+							return;
+						}
+						else //only 1 key is present in leaf. Have to check if parent has at least 3 non-special children.
+						{
+							int nonDummyChildCount=0;
+							for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
+							{
+								if(pnode.childrenArray[i].keys != null)
+								{
+									nonDummyChildCount++;
+								}
+							}
+							if(nonDummyChildCount != 2) //simple delete. Replace leaf node with a special node
+							{
+								pnode.childrenArray[nthChild] = new SpecialNode();
+								unlock(gpnode);
+								unlock(pnode);
+								return;
+							}
+							else //pruning delete. Only this node and another sibling exist. Make the gp point to the sibling.
+							{
+								//mark the parent node
+								pnode.isMarked = true;
+								for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
+								{
+									if(pnode.childrenArray[i] != null && pnode.childrenArray[i] != node) //find the sibling
+									{
+										gpnode.childrenArray[nthParent] = pnode.childrenArray[i];
+										unlock(gpnode);
+										unlock(pnode);
+										return;
+									}
+								}
+							}
+						}
+					}
+					else
+					{
+						//unlock gp & p
+						unlock(gpnode);
+						unlock(pnode);
+						return;
+					}
+				}
+			}
+			else
+			{
+				//unlock gp & p
+				unlock(gpnode);
 				unlock(pnode);
 			}
 		}

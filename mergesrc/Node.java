@@ -9,6 +9,7 @@ public class Node
 	long keys[];
 	Node[] childrenArray;
 	AtomicBoolean isLocked;
+	boolean isMarked;
 
 	public Node()
 	{
@@ -24,6 +25,7 @@ public class Node
 		if(nodeType.equalsIgnoreCase("internalNode"))
 		{
 			this.isLocked = new AtomicBoolean(false);
+			this.isMarked = false;
 			childrenArray = new Node[NUM_OF_CHILDREN_FOR_A_NODE];
 			for(int i=0;i<NUM_OF_CHILDREN_FOR_A_NODE;i++)
 			{
