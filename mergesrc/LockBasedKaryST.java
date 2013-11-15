@@ -27,7 +27,7 @@ public class LockBasedKaryST
 	public final void lock(Node node)
 	{
 		while(!node.isLocked.compareAndSet(false, true))
-		{	
+		{
 		}
 	}
 
@@ -298,7 +298,7 @@ public class LockBasedKaryST
 			lock(gpnode);
 			lock(pnode);
 			//check if parent still pointing to leaf & gp still pointing to p
-			if(nthChild > -1  && nthParent > -1 && gpnode.childrenArray[nthParent] == pnode && pnode.childrenArray[nthChild] == node && !pnode.isMarked) //and parent is unmarked
+			if(nthChild > -1  && nthParent > -1 && gpnode.childrenArray[nthParent] == pnode && pnode.childrenArray[nthChild] == node && !pnode.isMarked && !gpnode.isMarked) //and parent is unmarked
 			{
 				if(node.keys == null) //special node is reached. Delete key is not present
 				{
@@ -317,7 +317,7 @@ public class LockBasedKaryST
 						}
 						if(deleteKey == node.keys[i])
 						{
-							
+
 							keyFound=true;
 							keyIndex=i;
 						}
@@ -354,11 +354,15 @@ public class LockBasedKaryST
 								pnode.isMarked = true;
 								for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
 								{
-									if(pnode.childrenArray[i] != null && pnode.childrenArray[i] != node) //find the sibling
+									if(pnode.childrenArray[i].keys != null && pnode.childrenArray[i] != node) //find the sibling
 									{
+										//out.println(threadId + "replacing " + pnode + " " + gpnode.childrenArray[nthParent] + " with " + pnode.childrenArray[i]);
+										//out.println(threadId + " " + "gp= " + gpnode + " p= " + pnode + " l= " + node );
 										gpnode.childrenArray[nthParent] = pnode.childrenArray[i];
+										
 										unlock(gpnode);
 										unlock(pnode);
+										//out.println(threadId + " did a pruning delete for " + deleteKey + " and gp= " + gpnode + " l= " + gpnode.childrenArray[nthParent]);
 										return;
 									}
 								}
