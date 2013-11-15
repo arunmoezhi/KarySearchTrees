@@ -6,15 +6,22 @@ public class Node
 	public static final int K = 4;
 	public static final int NUM_OF_KEYS_IN_A_NODE= K-1;
 	public static final int NUM_OF_CHILDREN_FOR_A_NODE= K;
-	final long keys[];
+	long keys[];
 	Node[] childrenArray;
 	AtomicBoolean isLocked;
 	boolean isMarked;
+	static Node SPL_NODE;
 
 	public Node()
 	{
-		keys=null;
+		
 	}
+	
+	public Node(boolean dummyParameter)
+	{
+		SPL_NODE= (Node) new SpecialNode();
+	}
+	
 	
 	public Node(long[] keys, String nodeType)
 	{
@@ -30,7 +37,7 @@ public class Node
 			childrenArray = new Node[NUM_OF_CHILDREN_FOR_A_NODE];
 			for(int i=0;i<NUM_OF_CHILDREN_FOR_A_NODE;i++)
 			{
-				childrenArray[i] = new SpecialNode();
+				childrenArray[i] = Node.SPL_NODE;
 			}
 		}
 	}

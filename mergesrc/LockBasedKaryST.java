@@ -343,7 +343,8 @@ public class LockBasedKaryST
 							}
 							if(nonDummyChildCount != 2) //simple delete. Replace leaf node with a special node
 							{
-								pnode.childrenArray[nthChild] = new SpecialNode();
+								//pnode.childrenArray[nthChild] = new SpecialNode();
+								pnode.childrenArray[nthChild] = Node.SPL_NODE;
 								unlock(gpnode);
 								unlock(pnode);
 								return;
@@ -416,7 +417,7 @@ public class LockBasedKaryST
 
 	public final void printOnlyKeysPreorder(Node node)	
 	{
-		if(node == null || node.getClass() == SpecialNode.class)
+		if(node == null || node.equals(Node.SPL_NODE))
 		{
 			return;
 		}
@@ -440,7 +441,7 @@ public class LockBasedKaryST
 
 	public final void nodeCount(Node node)
 	{
-		if(node == null || node.getClass() == SpecialNode.class)
+		if(node == null || node.equals(Node.SPL_NODE))
 		{
 			return;
 		}
@@ -472,6 +473,7 @@ public class LockBasedKaryST
 		{
 			keys[i] = Long.MAX_VALUE;
 		}
+		new Node(false); //create a special node
 
 		grandParentHead = new Node(keys,"internalNode");
 		grandParentHead.childrenArray[0] = new Node(keys,"internalNode");
