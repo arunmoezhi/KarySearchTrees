@@ -23,7 +23,7 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 		FileInputStream fs;
 		try
 		{
-			fs = new FileInputStream("../input/in" + fileNumber + ".txt");
+			fs = new FileInputStream("input/in" + fileNumber + ".txt");
 			DataInputStream ds = new DataInputStream(fs);
 			BufferedReader reader = new BufferedReader(new InputStreamReader(ds));
 			while(!(in = reader.readLine()).equalsIgnoreCase("quit"))
@@ -71,7 +71,7 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 			arrayOfThreads[0] = new Thread(  new TestLockBasedKaryST(0)); //just inserts - initial array
 			arrayOfThreads[0].start();
 			arrayOfThreads[0].join();
-			//System.out.println("Thread " + 0 + " is done");
+			System.out.println("Thread " + 0 + " is done");
 
 
 			for(int i=1;i<=NUM_OF_THREADS;i++)
@@ -84,7 +84,7 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 			for(int i=1;i<=NUM_OF_THREADS;i++)
 			{
 				arrayOfThreads[i].join();
-				//System.out.println("Thread " + i + " is done");
+				System.out.println("Thread " + i + " is done");
 			}
 			//obj.printPreorder(LockBasedKaryST.grandParentHead);
 			//obj.printOnlyKeysPreorder(LockBasedKaryST.grandParentHead);

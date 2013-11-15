@@ -6,13 +6,14 @@ public class Node
 	public static final int K = 4;
 	public static final int NUM_OF_KEYS_IN_A_NODE= K-1;
 	public static final int NUM_OF_CHILDREN_FOR_A_NODE= K;
-	long keys[];
+	final long keys[];
 	Node[] childrenArray;
 	AtomicBoolean isLocked;
 	boolean isMarked;
 
 	public Node()
 	{
+		keys=null;
 	}
 	
 	public Node(long[] keys, String nodeType)
