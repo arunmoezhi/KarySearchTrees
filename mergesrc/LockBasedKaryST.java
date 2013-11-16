@@ -127,6 +127,25 @@ public class LockBasedKaryST
 					break;
 				}
 			}
+			if(node.keys != null)
+			{
+				for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+				{
+					if(node.keys[i] > 0)
+					{
+						if(insertKey == node.keys[i])
+						{
+							//key is already found
+							return;
+						}
+					}
+					else // leaf has a empty slot
+					{
+						isLeafFull=false;        
+						emptySlotId = i;
+					}
+				}
+			}
 
 			if(lock(pnode))
 			{
@@ -149,26 +168,6 @@ public class LockBasedKaryST
 					}
 					else //leaf node is reached
 					{
-						for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
-						{
-							if(node.keys[i] > 0)
-							{
-								if(insertKey == node.keys[i])
-								{
-									//key is already found
-									//out.println(threadId  + " " + insertKey + " is already found");
-									//unlock parent
-									unlock(pnode);
-									return;
-								}
-							}
-							else // leaf has a empty slot
-							{
-								isLeafFull=false;        
-								emptySlotId = i;
-							}
-						}
-
 						if(!isLeafFull)
 						{
 							//out.println(threadId  + "Non Full Leaf Node - Trying simple insert for " + insertKey);
@@ -302,99 +301,90 @@ public class LockBasedKaryST
 				}
 			}
 
+			if(node.keys == null) //special node is reached. Delete key is not present
+			{
+				return;
+			}
+			for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+			{
+				if(node.keys[i] > 0)
+				{
+					atleast2Keys++;
+				}
+				if(deleteKey == node.keys[i])
+				{
+
+					keyFound=true;
+					keyIndex=i;
+				}
+			}
+			if(!keyFound)
+			{
+				return;
+			}
 			if(lock(pnode))
 			{
 				//check if parent still pointing to leaf & gp still pointing to p
 				if(nthChild > -1  && nthParent > -1 && gpnode.childrenArray[nthParent] == pnode && pnode.childrenArray[nthChild] == node && !pnode.isMarked) //and parent is unmarked
 				{
-					if(node.keys == null) //special node is reached. Delete key is not present
+					//leaf node is reached
+
+					if(atleast2Keys > 1) //simple delete
 					{
-						//unlock gp & p
+						node.keys[keyIndex] = 0;
 						unlock(pnode);
 						return;
 					}
-					else //leaf node is reached
+					else //only 1 key is present in leaf. Have to check if parent has at least 3 non-special children.
 					{
-						for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+						int nonDummyChildCount=0;
+						for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
 						{
-							if(node.keys[i] > 0)
+							if(pnode.childrenArray[i].keys != null)
 							{
-								atleast2Keys++;
-							}
-							if(deleteKey == node.keys[i])
-							{
-
-								keyFound=true;
-								keyIndex=i;
+								nonDummyChildCount++;
 							}
 						}
-						if(keyFound)
+						if(nonDummyChildCount != 2) //simple delete. Replace leaf node with a special node
 						{
-							if(atleast2Keys > 1) //simple delete
+							//pnode.childrenArray[nthChild] = new SpecialNode();
+							pnode.childrenArray[nthChild] = Node.SPL_NODE;
+							unlock(pnode);
+							return;
+						}
+						else //pruning delete. Only this node and another sibling exist. Make the gp point to the sibling.
+						{
+							//mark the parent node
+							if(lock(gpnode))
 							{
-								node.keys[keyIndex] = 0;
-								unlock(pnode);
-								return;
-							}
-							else //only 1 key is present in leaf. Have to check if parent has at least 3 non-special children.
-							{
-								int nonDummyChildCount=0;
-								for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
+								if(!gpnode.isMarked && gpnode.childrenArray[nthParent] == pnode)
 								{
-									if(pnode.childrenArray[i].keys != null)
+									pnode.isMarked = true;
+									for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
 									{
-										nonDummyChildCount++;
-									}
-								}
-								if(nonDummyChildCount != 2) //simple delete. Replace leaf node with a special node
-								{
-									//pnode.childrenArray[nthChild] = new SpecialNode();
-									pnode.childrenArray[nthChild] = Node.SPL_NODE;
-									unlock(pnode);
-									return;
-								}
-								else //pruning delete. Only this node and another sibling exist. Make the gp point to the sibling.
-								{
-									//mark the parent node
-									if(lock(gpnode))
-									{
-										if(!gpnode.isMarked && gpnode.childrenArray[nthParent] == pnode)
+										if(pnode.childrenArray[i].keys != null && pnode.childrenArray[i] != node) //find the sibling
 										{
-											pnode.isMarked = true;
-											for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
-											{
-												if(pnode.childrenArray[i].keys != null && pnode.childrenArray[i] != node) //find the sibling
-												{
-													//out.println(threadId + "replacing " + pnode + " " + gpnode.childrenArray[nthParent] + " with " + pnode.childrenArray[i]);
-													//out.println(threadId + " " + "gp= " + gpnode + " p= " + pnode + " l= " + node );
-													gpnode.childrenArray[nthParent] = pnode.childrenArray[i];
+											//out.println(threadId + "replacing " + pnode + " " + gpnode.childrenArray[nthParent] + " with " + pnode.childrenArray[i]);
+											//out.println(threadId + " " + "gp= " + gpnode + " p= " + pnode + " l= " + node );
+											gpnode.childrenArray[nthParent] = pnode.childrenArray[i];
 
-													unlock(pnode);
-													unlock(gpnode);
-													//out.println(threadId + " did a pruning delete for " + deleteKey + " and gp= " + gpnode + " l= " + gpnode.childrenArray[nthParent]);
-													return;
-												}
-											}
-										}
-										else
-										{
 											unlock(pnode);
 											unlock(gpnode);
+											//out.println(threadId + " did a pruning delete for " + deleteKey + " and gp= " + gpnode + " l= " + gpnode.childrenArray[nthParent]);
+											return;
 										}
 									}
-									else
-									{
-										unlock(pnode);
-									}
+								}
+								else
+								{
+									unlock(pnode);
+									unlock(gpnode);
 								}
 							}
-						}
-						else
-						{
-							//unlock gp & p
-							unlock(pnode);
-							unlock(gpnode);
-							return;
+							else
+							{
+								unlock(pnode);
+							}
 						}
 					}
 				}
@@ -402,7 +392,6 @@ public class LockBasedKaryST
 				{
 					//unlock gp & p
 					unlock(pnode);
-					unlock(gpnode);
 				}
 			}
 		}
