@@ -24,11 +24,16 @@ public class LockBasedKaryST
 		}
 	}
 
-	public final void lock(Node node)
+	public final boolean lock(Node node)
 	{
 		while(!node.isLocked.compareAndSet(false, true))
 		{
+			if(node.isMarked)
+			{
+				return false;
+			}
 		}
+		return true;
 	}
 
 	public final void unlock(Node node)
@@ -123,111 +128,113 @@ public class LockBasedKaryST
 				}
 			}
 
-			lock(pnode);
-			//check if parent still pointing to leaf
-			if(nthChild > -1 && pnode.childrenArray[nthChild] == node && !pnode.isMarked) //and parent is unmarked
+			if(lock(pnode))
 			{
-				if(node.keys == null) //special node is reached
+				//check if parent still pointing to leaf
+				if(nthChild > -1 && pnode.childrenArray[nthChild] == node && !pnode.isMarked) //and parent is unmarked
 				{
-					//This special node can be replaced with a new leaf node containing the key
-					long[] keys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
-					for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+					if(node.keys == null) //special node is reached
 					{
-						keys[i]=0;
-					}
-					keys[0] = insertKey;
-					pnode.childrenArray[nthChild] = new Node(keys,"leafNode");
-					//unlock parent
-					unlock(pnode);
-					return;
-				}
-				else //leaf node is reached
-				{
-					for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
-					{
-						if(node.keys[i] > 0)
+						//This special node can be replaced with a new leaf node containing the key
+						long[] keys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+						for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 						{
-							if(insertKey == node.keys[i])
-							{
-								//key is already found
-								//out.println(threadId  + " " + insertKey + " is already found");
-								//unlock parent
-								unlock(pnode);
-								return;
-							}
+							keys[i]=0;
 						}
-						else // leaf has a empty slot
-						{
-							isLeafFull=false;        
-							emptySlotId = i;
-						}
-					}
-
-					if(!isLeafFull)
-					{
-						//out.println(threadId  + "Non Full Leaf Node - Trying simple insert for " + insertKey);
-						node.keys[emptySlotId] = insertKey;
+						keys[0] = insertKey;
+						pnode.childrenArray[nthChild] = new Node(keys,"leafNode");
 						//unlock parent
 						unlock(pnode);
 						return;
 					}
-					else
+					else //leaf node is reached
 					{
-						//here the leaf is full
-						//find the minimum key in the leaf and if insert key is greater than min key then do a swap
-						long[] tempInternalkeys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
-						for(int i =0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+						for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 						{
-							tempInternalkeys[i] = node.keys[i];
-						}
-
-						//out.println(threadId  + "Trying to insert " + insertKey + " and this node" + node + " is getting replaced" + tempInternalkeys[0] + tempInternalkeys[1] + tempInternalkeys[2]);
-						long extrakey;
-						long min = tempInternalkeys[0];
-						int  minPos = 0;
-						for(int i=1;i<tempInternalkeys.length;i++)
-						{
-							if(tempInternalkeys[i]<min)
+							if(node.keys[i] > 0)
 							{
-								min = tempInternalkeys[i];
-								minPos = i;
+								if(insertKey == node.keys[i])
+								{
+									//key is already found
+									//out.println(threadId  + " " + insertKey + " is already found");
+									//unlock parent
+									unlock(pnode);
+									return;
+								}
+							}
+							else // leaf has a empty slot
+							{
+								isLeafFull=false;        
+								emptySlotId = i;
 							}
 						}
-						if(insertKey > min)
+
+						if(!isLeafFull)
 						{
-							extrakey = min;
-							tempInternalkeys[minPos] = insertKey;
+							//out.println(threadId  + "Non Full Leaf Node - Trying simple insert for " + insertKey);
+							node.keys[emptySlotId] = insertKey;
+							//unlock parent
+							unlock(pnode);
+							return;
 						}
 						else
 						{
-							extrakey = insertKey;
+							//here the leaf is full
+							//find the minimum key in the leaf and if insert key is greater than min key then do a swap
+							long[] tempInternalkeys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+							for(int i =0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+							{
+								tempInternalkeys[i] = node.keys[i];
+							}
+
+							//out.println(threadId  + "Trying to insert " + insertKey + " and this node" + node + " is getting replaced" + tempInternalkeys[0] + tempInternalkeys[1] + tempInternalkeys[2]);
+							long extrakey;
+							long min = tempInternalkeys[0];
+							int  minPos = 0;
+							for(int i=1;i<tempInternalkeys.length;i++)
+							{
+								if(tempInternalkeys[i]<min)
+								{
+									min = tempInternalkeys[i];
+									minPos = i;
+								}
+							}
+							if(insertKey > min)
+							{
+								extrakey = min;
+								tempInternalkeys[minPos] = insertKey;
+							}
+							else
+							{
+								extrakey = insertKey;
+							}
+							Arrays.sort(tempInternalkeys);
+							//out.println("by" + tempInternalkeys + " " + tempInternalkeys[0] + tempInternalkeys[1] + tempInternalkeys[2]);
+							Node replaceNode = new Node(tempInternalkeys,"internalNode");
+							long[] tempLeafKeys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+							for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+							{
+								tempLeafKeys[i]=0;
+							}
+							tempLeafKeys[0] = extrakey;
+							replaceNode.childrenArray[0] = new Node(tempLeafKeys,"leafNode");
+							for(int i=1;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
+							{
+								tempLeafKeys[0] = tempInternalkeys[i-1];
+								replaceNode.childrenArray[i] = new Node(tempLeafKeys,"leafNode");
+							}
+							pnode.childrenArray[nthChild] = replaceNode;
+							//unlock parent
+							unlock(pnode);
+							return;
 						}
-						Arrays.sort(tempInternalkeys);
-						//out.println("by" + tempInternalkeys + " " + tempInternalkeys[0] + tempInternalkeys[1] + tempInternalkeys[2]);
-						Node replaceNode = new Node(tempInternalkeys,"internalNode");
-						long[] tempLeafKeys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
-						for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
-						{
-							tempLeafKeys[i]=0;
-						}
-						tempLeafKeys[0] = extrakey;
-						replaceNode.childrenArray[0] = new Node(tempLeafKeys,"leafNode");
-						for(int i=1;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
-						{
-							tempLeafKeys[0] = tempInternalkeys[i-1];
-							replaceNode.childrenArray[i] = new Node(tempLeafKeys,"leafNode");
-						}
-						pnode.childrenArray[nthChild] = replaceNode;
-						//unlock parent
-						unlock(pnode);
-						return;
 					}
 				}
-			}
-			else
-			{
-				//unlock parent
-				unlock(pnode);
+				else
+				{
+					//unlock parent
+					unlock(pnode);
+				}
 			}
 		}
 	}
@@ -295,95 +302,108 @@ public class LockBasedKaryST
 				}
 			}
 
-			lock(gpnode);
-			lock(pnode);
-			//check if parent still pointing to leaf & gp still pointing to p
-			if(nthChild > -1  && nthParent > -1 && gpnode.childrenArray[nthParent] == pnode && pnode.childrenArray[nthChild] == node && !pnode.isMarked && !gpnode.isMarked) //and parent is unmarked
+			if(lock(pnode))
 			{
-				if(node.keys == null) //special node is reached. Delete key is not present
+				//check if parent still pointing to leaf & gp still pointing to p
+				if(nthChild > -1  && nthParent > -1 && gpnode.childrenArray[nthParent] == pnode && pnode.childrenArray[nthChild] == node && !pnode.isMarked) //and parent is unmarked
 				{
-					//unlock gp & p
-					unlock(gpnode);
-					unlock(pnode);
-					return;
-				}
-				else //leaf node is reached
-				{
-					for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+					if(node.keys == null) //special node is reached. Delete key is not present
 					{
-						if(node.keys[i] > 0)
-						{
-							atleast2Keys++;
-						}
-						if(deleteKey == node.keys[i])
-						{
-
-							keyFound=true;
-							keyIndex=i;
-						}
+						//unlock gp & p
+						unlock(pnode);
+						return;
 					}
-					if(keyFound)
+					else //leaf node is reached
 					{
-						if(atleast2Keys > 1) //simple delete
+						for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 						{
-							node.keys[keyIndex] = 0;
-							unlock(gpnode);
-							unlock(pnode);
-							return;
-						}
-						else //only 1 key is present in leaf. Have to check if parent has at least 3 non-special children.
-						{
-							int nonDummyChildCount=0;
-							for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
+							if(node.keys[i] > 0)
 							{
-								if(pnode.childrenArray[i].keys != null)
-								{
-									nonDummyChildCount++;
-								}
+								atleast2Keys++;
 							}
-							if(nonDummyChildCount != 2) //simple delete. Replace leaf node with a special node
+							if(deleteKey == node.keys[i])
 							{
-								//pnode.childrenArray[nthChild] = new SpecialNode();
-								pnode.childrenArray[nthChild] = Node.SPL_NODE;
-								unlock(gpnode);
+
+								keyFound=true;
+								keyIndex=i;
+							}
+						}
+						if(keyFound)
+						{
+							if(atleast2Keys > 1) //simple delete
+							{
+								node.keys[keyIndex] = 0;
 								unlock(pnode);
 								return;
 							}
-							else //pruning delete. Only this node and another sibling exist. Make the gp point to the sibling.
+							else //only 1 key is present in leaf. Have to check if parent has at least 3 non-special children.
 							{
-								//mark the parent node
-								pnode.isMarked = true;
+								int nonDummyChildCount=0;
 								for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
 								{
-									if(pnode.childrenArray[i].keys != null && pnode.childrenArray[i] != node) //find the sibling
+									if(pnode.childrenArray[i].keys != null)
 									{
-										//out.println(threadId + "replacing " + pnode + " " + gpnode.childrenArray[nthParent] + " with " + pnode.childrenArray[i]);
-										//out.println(threadId + " " + "gp= " + gpnode + " p= " + pnode + " l= " + node );
-										gpnode.childrenArray[nthParent] = pnode.childrenArray[i];
-										
-										unlock(gpnode);
+										nonDummyChildCount++;
+									}
+								}
+								if(nonDummyChildCount != 2) //simple delete. Replace leaf node with a special node
+								{
+									//pnode.childrenArray[nthChild] = new SpecialNode();
+									pnode.childrenArray[nthChild] = Node.SPL_NODE;
+									unlock(pnode);
+									return;
+								}
+								else //pruning delete. Only this node and another sibling exist. Make the gp point to the sibling.
+								{
+									//mark the parent node
+									if(lock(gpnode))
+									{
+										if(!gpnode.isMarked && gpnode.childrenArray[nthParent] == pnode)
+										{
+											pnode.isMarked = true;
+											for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
+											{
+												if(pnode.childrenArray[i].keys != null && pnode.childrenArray[i] != node) //find the sibling
+												{
+													//out.println(threadId + "replacing " + pnode + " " + gpnode.childrenArray[nthParent] + " with " + pnode.childrenArray[i]);
+													//out.println(threadId + " " + "gp= " + gpnode + " p= " + pnode + " l= " + node );
+													gpnode.childrenArray[nthParent] = pnode.childrenArray[i];
+
+													unlock(pnode);
+													unlock(gpnode);
+													//out.println(threadId + " did a pruning delete for " + deleteKey + " and gp= " + gpnode + " l= " + gpnode.childrenArray[nthParent]);
+													return;
+												}
+											}
+										}
+										else
+										{
+											unlock(pnode);
+											unlock(gpnode);
+										}
+									}
+									else
+									{
 										unlock(pnode);
-										//out.println(threadId + " did a pruning delete for " + deleteKey + " and gp= " + gpnode + " l= " + gpnode.childrenArray[nthParent]);
-										return;
 									}
 								}
 							}
 						}
-					}
-					else
-					{
-						//unlock gp & p
-						unlock(gpnode);
-						unlock(pnode);
-						return;
+						else
+						{
+							//unlock gp & p
+							unlock(pnode);
+							unlock(gpnode);
+							return;
+						}
 					}
 				}
-			}
-			else
-			{
-				//unlock gp & p
-				unlock(gpnode);
-				unlock(pnode);
+				else
+				{
+					//unlock gp & p
+					unlock(pnode);
+					unlock(gpnode);
+				}
 			}
 		}
 	}
