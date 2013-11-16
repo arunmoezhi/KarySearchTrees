@@ -36,7 +36,7 @@ public class TestLockBasedKaryST extends LockBasedKaryST implements Runnable
 				}
 				else if(operation.equalsIgnoreCase("Insert"))
 				{
-					obj.insert(grandParentHead,Long.parseLong(st.nextToken()),threadId);
+					obj.insert(grandParentHead,Long.parseLong(st.nextToken()),Long.parseLong(st.nextToken()),threadId);
 				}
 				else if(operation.equalsIgnoreCase("Delete"))
 				{

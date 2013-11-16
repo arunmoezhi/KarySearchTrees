@@ -73,7 +73,7 @@ public class LockBasedKaryST
 				if(target == node.keys[i])
 				{
 					//System.out.println("key found");
-					return(1);
+					return(node.values[i]);
 				}
 			}
 			//System.out.println("key not found");
@@ -81,7 +81,7 @@ public class LockBasedKaryST
 		}
 	}
 
-	public final void insert(Node root, long insertKey, int threadId)
+	public final void insert(Node root, long insertValue, long insertKey, int threadId)
 	{
 		boolean ltLastKey;
 		boolean isLeafFull;
@@ -155,13 +155,16 @@ public class LockBasedKaryST
 					if(node.keys == null) //special node is reached
 					{
 						//This special node can be replaced with a new leaf node containing the key
-						long[] keys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+						long[] keys   = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+						long[] values = new long[Node.NUM_OF_KEYS_IN_A_NODE];
 						for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 						{
 							keys[i]=0;
+							values[i]=0;
 						}
 						keys[0] = insertKey;
-						pnode.childrenArray[nthChild] = new Node(keys,"leafNode");
+						values[0] = insertValue;
+						pnode.childrenArray[nthChild] = new Node(keys, values,"leafNode");
 						//unlock parent
 						unlock(pnode);
 						return;
@@ -172,6 +175,7 @@ public class LockBasedKaryST
 						{
 							//out.println(threadId  + "Non Full Leaf Node - Trying simple insert for " + insertKey);
 							node.keys[emptySlotId] = insertKey;
+							node.values[emptySlotId] = insertValue;
 							//unlock parent
 							unlock(pnode);
 							return;
@@ -181,46 +185,71 @@ public class LockBasedKaryST
 							//here the leaf is full
 							//find the minimum key in the leaf and if insert key is greater than min key then do a swap
 							long[] tempInternalkeys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+							long[] tempInternalvalues = new long[Node.NUM_OF_KEYS_IN_A_NODE];
 							for(int i =0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 							{
 								tempInternalkeys[i] = node.keys[i];
+								tempInternalvalues[i] = node.values[i];
 							}
 
 							//out.println(threadId  + "Trying to insert " + insertKey + " and this node" + node + " is getting replaced" + tempInternalkeys[0] + tempInternalkeys[1] + tempInternalkeys[2]);
 							long extrakey;
+							long extravalue;
 							long min = tempInternalkeys[0];
+							long minvalue = tempInternalvalues[0];
 							int  minPos = 0;
 							for(int i=1;i<tempInternalkeys.length;i++)
 							{
 								if(tempInternalkeys[i]<min)
 								{
 									min = tempInternalkeys[i];
+									minvalue=tempInternalvalues[i];
 									minPos = i;
 								}
 							}
 							if(insertKey > min)
 							{
 								extrakey = min;
+								extravalue = minvalue;
 								tempInternalkeys[minPos] = insertKey;
+								tempInternalvalues[minPos] = insertValue;
 							}
 							else
 							{
 								extrakey = insertKey;
+								extravalue = insertValue;
 							}
-							Arrays.sort(tempInternalkeys);
+							for(int i=1;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+							{
+								long tempk = tempInternalkeys[i];
+								long tempv = tempInternalvalues[i];
+								int j=i-1;
+								while(j>=0 && tempInternalkeys[j] > tempk)
+								{
+									tempInternalkeys[j+1] = tempInternalkeys[j];
+									tempInternalvalues[j+1] = tempInternalvalues[j];
+									j--;
+								}
+								tempInternalkeys[j+1] = tempk;
+								tempInternalvalues[j+1] = tempv;
+							}
 							//out.println("by" + tempInternalkeys + " " + tempInternalkeys[0] + tempInternalkeys[1] + tempInternalkeys[2]);
-							Node replaceNode = new Node(tempInternalkeys,"internalNode");
+							Node replaceNode = new Node(tempInternalkeys, tempInternalvalues, "internalNode");
 							long[] tempLeafKeys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+							long[] tempLeafvalues = new long[Node.NUM_OF_KEYS_IN_A_NODE];
 							for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 							{
 								tempLeafKeys[i]=0;
+								tempLeafvalues[i]=0;
 							}
 							tempLeafKeys[0] = extrakey;
-							replaceNode.childrenArray[0] = new Node(tempLeafKeys,"leafNode");
+							tempLeafvalues[0] = extravalue;
+							replaceNode.childrenArray[0] = new Node(tempLeafKeys, tempLeafvalues, "leafNode");
 							for(int i=1;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
 							{
 								tempLeafKeys[0] = tempInternalkeys[i-1];
-								replaceNode.childrenArray[i] = new Node(tempLeafKeys,"leafNode");
+								tempLeafvalues[0] = tempInternalvalues[i-1];
+								replaceNode.childrenArray[i] = new Node(tempLeafKeys, tempLeafvalues, "leafNode");
 							}
 							pnode.childrenArray[nthChild] = replaceNode;
 							//unlock parent
@@ -332,6 +361,7 @@ public class LockBasedKaryST
 					if(atleast2Keys > 1) //simple delete
 					{
 						node.keys[keyIndex] = 0;
+						node.values[keyIndex] = 0;
 						unlock(pnode);
 						return;
 					}
@@ -476,16 +506,18 @@ public class LockBasedKaryST
 
 	public final void createHeadNodes()
 	{
-		long[] keys = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+		long[] keys   = new long[Node.NUM_OF_KEYS_IN_A_NODE];
+		long[] values = new long[Node.NUM_OF_KEYS_IN_A_NODE];
 
 		for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 		{
 			keys[i] = Long.MAX_VALUE;
+			values[i] = Long.MAX_VALUE;
 		}
 		new Node(false); //create a special node
 
-		grandParentHead = new Node(keys,"internalNode");
-		grandParentHead.childrenArray[0] = new Node(keys,"internalNode");
+		grandParentHead = new Node(keys,values,"internalNode");
+		grandParentHead.childrenArray[0] = new Node(keys,values,"internalNode");
 		parentHead = grandParentHead.childrenArray[0];
 	}
 
