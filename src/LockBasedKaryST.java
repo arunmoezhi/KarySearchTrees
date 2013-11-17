@@ -109,6 +109,7 @@ public class LockBasedKaryST
 						ltLastKey = true;
 						pnode = node;
 						node = node.childrenArray[i];
+						nthChild = i;
 						break;
 					}
 				}
@@ -116,17 +117,18 @@ public class LockBasedKaryST
 				{
 					pnode = node;
 					node = node.childrenArray[Node.NUM_OF_KEYS_IN_A_NODE];
+					nthChild = Node.NUM_OF_KEYS_IN_A_NODE;
 				}
 			}
 
-			for(int i =0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++) //get the child id w.r.t the parent
-			{
-				if(pnode.childrenArray[i] == node)
-				{
-					nthChild = i;
-					break;
-				}
-			}
+//			for(int i =0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++) //get the child id w.r.t the parent
+//			{
+//				if(pnode.childrenArray[i] == node)
+//				{
+//					nthChild = i;
+//					break;
+//				}
+//			}
 			if(node.keys != null)
 			{
 				for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
@@ -464,7 +466,7 @@ public class LockBasedKaryST
 		{
 			for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
 			{
-				System.out.print(node.keys[i] + "\t");
+				System.out.print(node.keys[i] + "," + node.values[i] + "\t");
 			}
 			System.out.println();
 		}
@@ -477,10 +479,37 @@ public class LockBasedKaryST
 			}
 		}
 	}
+	
+	public final void printOnlyKeysInorder(Node node)	
+	{
+		if(node == null || node.equals(Node.SPL_NODE))
+		{
+			return;
+		}
+		if(node.childrenArray == null && node.keys != null)
+		{
+			for(int i=0;i<Node.NUM_OF_KEYS_IN_A_NODE;i++)
+			{
+				//System.out.print(node.keys[i] + "," + node.values[i] + "\t"); //with values
+				System.out.print(node.keys[i] + "\t");
+			}
+			System.out.println();
+		}
+
+		if(node.childrenArray != null)
+		{
+			for(int i=0;i<Node.NUM_OF_CHILDREN_FOR_A_NODE;i++)
+			{
+				printOnlyKeysInorder(node.childrenArray[i]);
+			}
+		}
+	}
+	
 
 	public final void nodeCount(Node node)
 	{
-		if(node == null || node.equals(Node.SPL_NODE))
+		if(node == null || node.keys ==null)
+		//if(node == null || node.equals(Node.SPL_NODE))
 		{
 			return;
 		}
