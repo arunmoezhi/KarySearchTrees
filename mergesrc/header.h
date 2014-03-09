@@ -4,6 +4,8 @@
 #include<stdbool.h>
 #include<limits.h>
 #include<math.h>
+#define __STDC_LIMIT_MACROS
+#include<stdint.h>
 #include<tbb/atomic.h>
 
 #define K 2
