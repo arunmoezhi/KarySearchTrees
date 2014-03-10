@@ -195,7 +195,7 @@ bool insert(unsigned long insertKey, unsigned long insertValue)
       {
         if(pnode->lChild.compare_and_swap(replaceNode,node) == node)
         {
-          free(node);
+          //free(node);
           #ifdef DEBUG_ON
           printf("Success I%lu\t%lu\n",insertKey,getAddress(parentHead->lChild)->key);
           #endif
@@ -206,7 +206,7 @@ bool insert(unsigned long insertKey, unsigned long insertValue)
       {
         if(pnode->rChild.compare_and_swap(replaceNode,node) == node)
         {
-          free(node);
+          //free(node);
           #ifdef DEBUG_ON
           printf("Success I%lu\t%lu\n",insertKey,getAddress(parentHead->lChild)->key);
           #endif
