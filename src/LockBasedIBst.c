@@ -110,24 +110,36 @@ void unlockRChild(struct node* parent)
 
 unsigned long lookup(unsigned long target)
 {
-  struct node* node = grandParentHead;
-
-  while( node != NULL ) //Loop until a special node is reached
+  struct node* node;
+  unsigned long lastRightKey;
+  struct node* lastRightNode;
+  while(true)
   {
-    if(target < node->key)
+    node = grandParentHead;
+    lastRightKey = node->key;
+    lastRightNode = node;
+    while( node != NULL ) //Loop until a special node is reached
     {
-      node = getAddress(node->lChild);
+      if(target < node->key)
+      {
+        node = getAddress(node->lChild);
+      }
+      else if (target > node->key)
+      {
+        lastRightKey = node->key;
+        lastRightNode = node;
+        node = getAddress(node->rChild);
+      }
+      else
+      {
+        return(node->value);
+      }
     }
-    else if (target > node->key)
+    if(lastRightNode->key == lastRightKey)
     {
-      node = getAddress(node->rChild);
-    }
-    else
-    {
-      return(node->value);
+      return(0);
     }
   }
-  return(0);
 }
 
 bool insert(unsigned long insertKey, unsigned long insertValue)
@@ -135,29 +147,44 @@ bool insert(unsigned long insertKey, unsigned long insertValue)
   struct node* pnode;
   struct node* node;
   struct node* replaceNode;
+  unsigned long lastRightKey;
+  struct node* lastRightNode;
   
   while(true)
   {
-    pnode = grandParentHead;
-    node = parentHead;
-    replaceNode = NULL;
-
-    while(node->lChild != NULL) //Loop until the parent of a special node is reached
+    while(true)
     {
-      if(insertKey < node->key)
+      pnode = grandParentHead;
+      node = parentHead;
+      replaceNode = NULL;
+      lastRightKey = node->key;
+      lastRightNode = node;
+
+      while(node->lChild != NULL) //Loop until the parent of a special node is reached
       {
-        pnode = node;
-        node = getAddress(node->lChild);
+        if(insertKey < node->key)
+        {
+          pnode = node;
+          node = getAddress(node->lChild);
+        }
+        else if (insertKey > node->key)
+        {
+          lastRightKey = node->key;
+          lastRightNode = node;
+          pnode = node;
+          node = getAddress(node->rChild);
+        }
+        else
+        {
+          #ifdef DEBUG_ON
+          printf("Failed I%lu\t%lu\n",insertKey,getAddress(parentHead->lChild)->key);
+          #endif
+          return(false);
+        }
       }
-      else if (insertKey > node->key)
+      if(lastRightNode->key == lastRightKey)
       {
-        pnode = node;
-        node = getAddress(node->rChild);
-      }
-      else
-      {
-        printf("Failed I%lu\t%lu\n",insertKey,parentHead->lChild->key);
-        return(false);
+        break;  
       }
     }
 
@@ -169,7 +196,9 @@ bool insert(unsigned long insertKey, unsigned long insertValue)
         if(pnode->lChild.compare_and_swap(replaceNode,node) == node)
         {
           free(node);
-          printf("Success I%lu\t%lu\n",insertKey,parentHead->lChild->key);
+          #ifdef DEBUG_ON
+          printf("Success I%lu\t%lu\n",insertKey,getAddress(parentHead->lChild)->key);
+          #endif
           return(true);
         }
       }
@@ -178,7 +207,9 @@ bool insert(unsigned long insertKey, unsigned long insertValue)
         if(pnode->rChild.compare_and_swap(replaceNode,node) == node)
         {
           free(node);
-          printf("Success I%lu\t%lu\n",insertKey,parentHead->lChild->key);
+          #ifdef DEBUG_ON
+          printf("Success I%lu\t%lu\n",insertKey,getAddress(parentHead->lChild)->key);
+          #endif
           return(true);
         }
       }
@@ -191,25 +222,45 @@ bool remove(unsigned long deleteKey)
 {
   struct node* pnode;
   struct node* node;
+  unsigned long lastRightKey;
+  struct node* lastRightNode;
+  bool keyFound;
   
   while(true)
   {
-    pnode = grandParentHead;
-    node = parentHead;
-
-    while(node->lChild != NULL) //Loop until the parent of a special node is reached
+    while(true)
     {
-      if(deleteKey < node->key)
+      pnode = grandParentHead;
+      node = parentHead;
+      lastRightKey = node->key;
+      lastRightNode = node;
+      keyFound = false;
+
+      while(node->lChild != NULL) //Loop until the parent of a special node is reached
       {
-        pnode = node;
-        node = getAddress(node->lChild);
+        if(deleteKey < node->key)
+        {
+          pnode = node;
+          node = getAddress(node->lChild);
+        }
+        else if (deleteKey > node->key)
+        {
+          lastRightKey = node->key;
+          lastRightNode = node;
+          pnode = node;
+          node = getAddress(node->rChild);
+        }
+        else //key to be deleted is found
+        {
+          keyFound = true;
+          break;
+        }
       }
-      else if (deleteKey > node->key)
+      if(keyFound)
       {
-        pnode = node;
-        node = getAddress(node->rChild);
+        break;
       }
-      else //key to be deleted is found
+      if(lastRightNode->key == lastRightKey)
       {
         break;
       }
@@ -229,31 +280,31 @@ bool remove(unsigned long deleteKey)
               {
                 if(getAddress(node->rChild)->key == 0) // 0 0 case 
                 {
- // printf("00\n");
                   pnode->lChild = getAddress(node->lChild);
                 }
                 else // 0 1 case
                 {
- // printf("01\n");
                   pnode->lChild = getAddress(node->rChild);
                 }
                 unlockLChild(pnode);
-                printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
+                #ifdef DEBUG_ON
+                printf("Success SD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                #endif
                 return(true);
               }
               else
               {
                 if(getAddress(node->rChild)->key == 0) // 1 0 case 
                 {
-  //printf("10\n");
                   pnode->lChild = getAddress(node->lChild);
                   unlockLChild(pnode);
-                  printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
+                  #ifdef DEBUG_ON
+                  printf("Success SD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                  #endif
                   return(true);
                 }
                 else // 1 1 case
                 {
-  //printf("11\n");
                   struct node* rpnode;
                   struct node* rnode;
                   rpnode = node;
@@ -267,27 +318,56 @@ bool remove(unsigned long deleteKey)
                   {
                     if(lockLChild(rpnode))
                     {
-                      node->key = rnode->key;
-                      node->value = rnode->value;
-                      rpnode->lChild = getAddress(rnode->rChild);
-                      unlockLChild(rpnode);
-                      unlockLChild(pnode);
-                      unlockLChild(node);
-                      unlockRChild(node);
-                      printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
-                      return(true);
+                      if(lockLChild(rnode))
+                      {
+                        if(lockRChild(rnode))
+                        {
+                          node->key = rnode->key;
+                          node->value = rnode->value;
+                          rpnode->lChild = getAddress(rnode->rChild);
+                          unlockLChild(pnode);
+                          unlockLChild(node);
+                          unlockRChild(node);
+                          unlockLChild(rpnode);
+                          #ifdef DEBUG_ON
+                          printf("Success CD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                          #endif
+                          return(true);
+                        }
+                        else
+                        {
+                          unlockLChild(rpnode);
+                          unlockLChild(rnode);
+                        }
+                      }
+                      else
+                      {
+                        unlockLChild(rpnode);  
+                      }
                     }
                   }
                   else
                   {
-                    node->key = rnode->key;
-                    node->value = rnode->value;
-                    node->rChild = getAddress(rnode->rChild);
-                    unlockLChild(pnode);
-                    unlockLChild(node);
-                    unlockRChild(node);
-                    printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
-                    return(true);
+                    if(lockLChild(rnode))
+                    {
+                      if(lockRChild(rnode))
+                      {
+                        node->key = rnode->key;
+                        node->value = rnode->value;
+                        node->rChild = getAddress(rnode->rChild);
+                        unlockLChild(pnode);
+                        unlockLChild(node);
+                        unlockRChild(node);
+                        #ifdef DEBUG_ON
+                        printf("Success CD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                        #endif
+                        return(true);
+                      }
+                      else
+                      {
+                        unlockLChild(rnode);
+                      }
+                    }
                   }
                   unlockLChild(pnode);
                   unlockLChild(node);
@@ -326,7 +406,9 @@ bool remove(unsigned long deleteKey)
                   pnode->rChild = getAddress(node->rChild);
                 }
                 unlockRChild(pnode);
-                printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
+                #ifdef DEBUG_ON
+                printf("Success SD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                #endif
                 return(true);
               }
               else
@@ -335,7 +417,9 @@ bool remove(unsigned long deleteKey)
                 {
                   pnode->rChild = getAddress(node->lChild);
                   unlockRChild(pnode);
-                  printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
+                  #ifdef DEBUG_ON
+                  printf("Success SD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                  #endif
                   return(true);
                 }
                 else // 1 1 case
@@ -353,27 +437,56 @@ bool remove(unsigned long deleteKey)
                   {
                     if(lockLChild(rpnode))
                     {
-                      node->key = rnode->key;
-                      node->value = rnode->value;
-                      rpnode->lChild = getAddress(rnode->rChild);
-                      unlockLChild(rpnode);
-                      unlockRChild(pnode);
-                      unlockLChild(node);
-                      unlockRChild(node);
-                      printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
-                      return(true);
+                      if(lockLChild(rnode))
+                      {
+                        if(lockRChild(rnode))
+                        {
+                          node->key = rnode->key;
+                          node->value = rnode->value;
+                          rpnode->lChild = getAddress(rnode->rChild);
+                          unlockRChild(pnode);
+                          unlockLChild(node);
+                          unlockRChild(node);
+                          unlockLChild(rpnode);
+                          #ifdef DEBUG_ON
+                          printf("Success CD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                          #endif
+                          return(true);
+                        }
+                        else
+                        {
+                          unlockLChild(rpnode);
+                          unlockLChild(rnode);
+                        }
+                      }
+                      else
+                      {
+                        unlockLChild(rpnode);
+                      }
                     }
                   }
                   else
                   {
-                    node->key = rnode->key;
-                    node->value = rnode->value;
-                    node->rChild = getAddress(rnode->rChild);
-                    unlockRChild(pnode);
-                    unlockLChild(node);
-                    unlockRChild(node);
-                    printf("Success D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
-                    return(true);
+                    if(lockLChild(rnode))
+                    {
+                      if(lockRChild(rnode))
+                      {
+                        node->key = rnode->key;
+                        node->value = rnode->value;
+                        node->rChild = getAddress(rnode->rChild);
+                        unlockRChild(pnode);
+                        unlockLChild(node);
+                        unlockRChild(node);
+                        #ifdef DEBUG_ON
+                        printf("Success CD%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+                        #endif
+                        return(true);
+                      }
+                      else
+                      {
+                        unlockLChild(rnode);
+                      }
+                    }
                   }
                   unlockRChild(pnode);
                   unlockLChild(node);
@@ -396,7 +509,9 @@ bool remove(unsigned long deleteKey)
     }
     else
     {
-      printf("Failed D%lu\t%lu\n",deleteKey,parentHead->lChild->key);
+      #ifdef DEBUG_ON
+      printf("Failed D%lu\t%lu\n",deleteKey,getAddress(parentHead->lChild)->key);
+      #endif
       return(false);
     }
   }
@@ -435,5 +550,6 @@ void printKeysInOrder(struct node* node)
 void printKeys()
 {
   printKeysInOrder(parentHead);
+  printf("\n");
 }
 

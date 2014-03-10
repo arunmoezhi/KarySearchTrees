@@ -12,6 +12,8 @@
 #define NUM_OF_KEYS_IN_A_NODE K-1
 #define NUM_OF_CHILDREN_FOR_A_NODE K
 
+//#define DEBUG_ON
+
 void createHeadNodes();
 unsigned long lookup(unsigned long);
 bool insert(unsigned long , unsigned long );
