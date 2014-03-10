@@ -38,14 +38,16 @@ int main(int argc, char *argv[])
   deletePercent = insertPercent + atoi(argv[4]);
   iterations = (unsigned long) pow(2,atoi(argv[5]));
   keyRange = (unsigned long) pow(2,atoi(argv[6]));
-  printf("%d\t%d\t%d\t%d\t%d\t%d\n",NUM_OF_THREADS,findPercent,insertPercent,deletePercent,iterations,keyRange);
+  printf("%d\t%d\t%d\t%d\t%lu\t%lu\n",NUM_OF_THREADS,findPercent,insertPercent,deletePercent,iterations,keyRange);
 
   createHeadNodes();
   for(int i=0;i<keyRange/2;i++)
   {
     insert(rand()%keyRange + 1,rand()%keyRange + 1);
   }
+  #ifdef DEBUG_ON
   printKeys();
+  #endif
   printf("Initial Size: %lu\n",size());
   pthread_t threadArray[NUM_OF_THREADS];
   for(int i=0;i<NUM_OF_THREADS;i++)
@@ -57,7 +59,9 @@ int main(int argc, char *argv[])
     pthread_join(threadArray[i], NULL);
   }
   printf("Final Size: %lu\n",size());
-  printf("Inserted %lu\tDeleted %lu\n",(int) totalInserted,(int) totalDeleted);
+  printf("Inserted %d\tDeleted %d\n",(int) totalInserted,(int) totalDeleted);
+  #ifdef DEBUG_ON
   printKeys();
+  #endif
   pthread_exit(NULL);
 }
