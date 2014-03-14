@@ -1,5 +1,4 @@
 #include"header.h"
-#define ATOMIC_COUNTERS
 int NUM_OF_THREADS;
 int findPercent;
 int insertPercent;
@@ -8,10 +7,12 @@ unsigned long iterations;
 unsigned long keyRange;
 double* timeArray;
 double MOPS;
-#ifdef ATOMIC_COUNTERS
-tbb::atomic<int> totalInserted;
-tbb::atomic<int> totalDeleted;
-#endif
+
+struct threadArgs
+{
+  int threadId;
+  unsigned int seed;
+};
 
 struct timespec diff(timespec start, timespec end)
 {
@@ -28,42 +29,46 @@ struct timespec diff(timespec start, timespec end)
 	return temp;
 }
 
-void *operateOnTree(void* threadId)
+void *operateOnTree(void* tArgs)
 {
   struct timespec s,e;
   int chooseOperation;
-  srand((long) threadId);
+  unsigned int seed;
+  int threadId;
+  threadId = ((struct threadArgs*) tArgs)->threadId;
+  seed = ((struct threadArgs*) tArgs)->seed;
+  unsigned int readCount=0;
+  unsigned int successfulReadCount=0;
   clock_gettime(CLOCK_REALTIME,&s);
   for(int i=0;i<iterations;i++)
   {
-    chooseOperation = rand()%100;
+    chooseOperation = rand_r(&seed)%100;
     if(chooseOperation < findPercent)
     {
-      lookup(rand()%keyRange + 1);
+      readCount++;
+      successfulReadCount += lookup(rand_r(&seed)%keyRange + 1);
     }
     else if (chooseOperation < insertPercent)
     {
-      #ifdef ATOMIC_COUNTERS
-      totalInserted.fetch_and_add(insert(rand()%keyRange + 1,rand()%keyRange + 1));
+      #ifdef VALUE_PRESENT
+      insert(rand_r(&seed)%keyRange + 1, 1);
       #else
-      insert(rand()%keyRange + 1,rand()%keyRange + 1);
+      insert(rand_r(&seed)%keyRange + 1);
       #endif
     }
     else
     {
-      #ifdef ATOMIC_COUNTERS
-      totalDeleted.fetch_and_add(remove(rand()%keyRange + 1));
-      #else
-      remove(rand()%keyRange + 1);
-      #endif
+      remove(rand_r(&seed)%keyRange + 1);
     }
   }
   clock_gettime(CLOCK_REALTIME,&e);
-  timeArray[(intptr_t) threadId] = (double) (diff(s,e).tv_sec * 1000000000 + diff(s,e).tv_nsec)/1000;
+  timeArray[threadId] = (double) (diff(s,e).tv_sec * 1000000000 + diff(s,e).tv_nsec)/1000;
+  //printf("%lu,%lu\n",readCount,successfulReadCount);
 }
 
 int main(int argc, char *argv[])
 {
+  struct threadArgs** tArgs;
   double totalTime=0;
   double avgTime=0;
   NUM_OF_THREADS = atoi(argv[1]);
@@ -73,10 +78,19 @@ int main(int argc, char *argv[])
   iterations = (unsigned long) pow(2,atoi(argv[5]));
   keyRange = (unsigned long) pow(2,atoi(argv[6]));
   timeArray = (double*)malloc(NUM_OF_THREADS * sizeof(double));
+  tArgs = (struct threadArgs**) malloc(NUM_OF_THREADS * sizeof(struct threadArgs*));
+  unsigned int seed = 1;
+  srand(seed);
   createHeadNodes();
-  for(int i=0;i<keyRange/2;i++)
+  
+  int i=0;
+  while(i < keyRange/2)
   {
-    insert(rand()%keyRange + 1,rand()%keyRange + 1);
+    #ifdef VALUE_PRESENT
+    i += insert(rand_r(&seed)%keyRange + 1,1);
+    #else
+    i += insert(rand_r(&seed)%keyRange + 1);
+    #endif
   }
   #ifdef DEBUG_ON
   printKeys();
@@ -85,7 +99,14 @@ int main(int argc, char *argv[])
   pthread_t threadArray[NUM_OF_THREADS];
   for(int i=0;i<NUM_OF_THREADS;i++)
   {
-    pthread_create(&threadArray[i], NULL, operateOnTree, (void*) i);
+    tArgs[i] = (struct threadArgs*) malloc(sizeof(struct threadArgs));
+    tArgs[i]->threadId = i;
+    tArgs[i]->seed = rand();
+  }
+
+  for(int i=0;i<NUM_OF_THREADS;i++)
+  {
+    pthread_create(&threadArray[i], NULL, operateOnTree, (void*) tArgs[i] );
   }
   for(int i=0;i<NUM_OF_THREADS;i++)
   {
