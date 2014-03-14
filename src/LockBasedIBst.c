@@ -8,19 +8,14 @@ struct node
   tbb::atomic<struct node*> rChild;    //format <address,lockbit>
 };
 
+struct specialNode
+{
+  unsigned long key;
+};
+
 struct node* grandParentHead=NULL;
 struct node* parentHead=NULL;
 unsigned long numOfNodes;
-
-struct node* newSpecialNode()
-{
-  struct node* node = (struct node*) malloc(sizeof(struct node));
-  node->key = 0;
-  node->value = 0;
-  node->lChild = NULL;
-  node->rChild = NULL;
-  return(node);
-}
 
 struct node* newTwoSpecialNodes()
 {
@@ -36,15 +31,23 @@ struct node* newTwoSpecialNodes()
   return(twoSpecialnodes);
 }
 
+struct specialNode* newTwoSmallSpecialNodes()
+{
+  struct specialNode* twoSmallSpecialNodes = (struct specialNode*) malloc(2*sizeof(struct specialNode));
+  twoSmallSpecialNodes[0].key = 0;
+  twoSmallSpecialNodes[1].key = 0;
+  return(twoSmallSpecialNodes);
+}
+
 struct node* newInternalNode(unsigned long key, unsigned long value)
 {
   struct node* node = (struct node*) malloc(sizeof(struct node));
   node->key = key;
   node->value = value;
-  struct node* twoSpecialNodes;
-  twoSpecialNodes = newTwoSpecialNodes();
-  node->lChild = &twoSpecialNodes[0];
-  node->rChild = &twoSpecialNodes[1];
+  struct specialNode* twoSmallSpecialNodes;
+  twoSmallSpecialNodes = newTwoSmallSpecialNodes();
+  node->lChild = (struct node*) &twoSmallSpecialNodes[0];
+  node->rChild = (struct node*) &twoSmallSpecialNodes[1];
   return(node);
 }
 
@@ -135,7 +138,8 @@ unsigned long lookup(unsigned long target)
     node = grandParentHead;
     lastRightKey = node->key;
     lastRightNode = node;
-    while( node != NULL ) //Loop until a special node is reached
+    //while( node != NULL ) //Loop until a special node is reached
+    while( node->key != 0 ) //Loop until a special node is reached
     {
       if(target < node->key)
       {
@@ -177,7 +181,8 @@ bool insert(unsigned long insertKey, unsigned long insertValue)
       lastRightKey = node->key;
       lastRightNode = node;
 
-      while(node->lChild != NULL) //Loop until the parent of a special node is reached
+      //while(node->lChild != NULL) //Loop until the parent of a special node is reached
+      while(node->key != 0) //Loop until the parent of a special node is reached
       {
         if(insertKey < node->key)
         {
@@ -253,7 +258,8 @@ bool remove(unsigned long deleteKey)
       lastRightNode = node;
       keyFound = false;
 
-      while(node->lChild != NULL) //Loop until the parent of a special node is reached
+      //while(node->lChild != NULL) //Loop until the parent of a special node is reached
+      while(node->key != 0) //Loop until the parent of a special node is reached
       {
         if(deleteKey < node->key)
         {
@@ -325,19 +331,16 @@ bool remove(unsigned long deleteKey)
                   struct node* rpnode;
                   struct node* rnode;
                   struct node* lcrnode;
-                  struct node* glcrnode;
                   rpnode = node;
                   rnode = getAddress(node->rChild);
                   lcrnode = getAddress(rnode->lChild);
-                  glcrnode = getAddress(lcrnode->lChild);
-                  if(glcrnode != NULL)
+                  if(lcrnode->key != 0)
                   {
-                    while(glcrnode != NULL)
+                    while(lcrnode->key != 0)
                     {
                       rpnode = rnode;
                       rnode = lcrnode;
-                      lcrnode = glcrnode;
-                      glcrnode = getAddress(glcrnode->lChild);
+                      lcrnode = getAddress(lcrnode->lChild);
                     }
                     if(lockLChild(rpnode))
                     {
@@ -450,19 +453,16 @@ bool remove(unsigned long deleteKey)
                   struct node* rpnode;
                   struct node* rnode;
                   struct node* lcrnode;
-                  struct node* glcrnode;
                   rpnode = node;
                   rnode = getAddress(node->rChild);
                   lcrnode = getAddress(rnode->lChild);
-                  glcrnode = getAddress(lcrnode->lChild);
-                  if(glcrnode != NULL)
+                  if(lcrnode->key != 0)
                   {
-                    while(glcrnode != NULL)
+                    while(lcrnode->key != 0)
                     {
                       rpnode = rnode;
                       rnode = lcrnode;
-                      lcrnode = glcrnode;
-                      glcrnode = getAddress(glcrnode->lChild);
+                      lcrnode = getAddress(lcrnode->lChild);
                     }
                     if(lockLChild(rpnode))
                     {
@@ -548,7 +548,8 @@ bool remove(unsigned long deleteKey)
 
 void nodeCount(struct node* node)
 {
-  if(node->lChild == NULL)
+  //if(node->lChild == NULL)
+  if(node->key == 0)
   {
     return;
   }
@@ -566,7 +567,8 @@ unsigned long size()
 
 void printKeysInOrder(struct node* node)
 {
-  if(node->lChild == NULL)
+  //if(node->lChild == NULL)
+  if(node->key == 0)
   {
     return;
   }
