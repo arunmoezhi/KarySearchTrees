@@ -22,19 +22,34 @@ struct node* newSpecialNode()
   return(node);
 }
 
+struct node* newTwoSpecialNodes()
+{
+  struct node* twoSpecialnodes = (struct node*) malloc(2*sizeof(struct node));
+  twoSpecialnodes[0].key = 0;
+  twoSpecialnodes[0].value = 0;
+  twoSpecialnodes[0].lChild = NULL;
+  twoSpecialnodes[0].rChild = NULL;
+  twoSpecialnodes[1].key = 0;
+  twoSpecialnodes[1].value = 0;
+  twoSpecialnodes[1].lChild = NULL;
+  twoSpecialnodes[1].rChild = NULL;
+  return(twoSpecialnodes);
+}
+
 struct node* newInternalNode(unsigned long key, unsigned long value)
 {
   struct node* node = (struct node*) malloc(sizeof(struct node));
   node->key = key;
   node->value = value;
-  node->lChild = newSpecialNode();
-  node->rChild = newSpecialNode();
+  struct node* twoSpecialNodes;
+  twoSpecialNodes = newTwoSpecialNodes();
+  node->lChild = &twoSpecialNodes[0];
+  node->rChild = &twoSpecialNodes[1];
   return(node);
 }
 
 void createHeadNodes()
 {
-  newSpecialNode();
   grandParentHead = newInternalNode(ULONG_MAX, ULONG_MAX);
   grandParentHead->lChild = newInternalNode(ULONG_MAX, ULONG_MAX);
   parentHead = grandParentHead->lChild;
@@ -45,10 +60,12 @@ bool getLockBit(struct node* p)
   return (uintptr_t) p & 1;
 }
 
-struct node* getAddress(struct node* p)
-{
-  return (struct node*)((uintptr_t) p & UINTPTR_MAX_XOR_WITH_1);
-}
+#define getAddress(p) ((struct node*) ((uintptr_t) (struct node*) (p) & UINTPTR_MAX_XOR_WITH_1))
+
+//static inline struct node* getAddress(struct node* p)
+//{
+//  return (struct node*)((uintptr_t) p & UINTPTR_MAX_XOR_WITH_1);
+//}
 
 struct node* setLockBit(struct node* p)
 {
