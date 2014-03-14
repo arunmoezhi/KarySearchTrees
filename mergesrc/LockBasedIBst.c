@@ -3,7 +3,9 @@
 struct node
 {
   unsigned long key;
+  #ifdef VALUE_PRESENT
   unsigned long value;
+  #endif
   tbb::atomic<struct node*> lChild;    //format <address,lockbit>
   tbb::atomic<struct node*> rChild;    //format <address,lockbit>
 };
@@ -17,20 +19,6 @@ struct node* grandParentHead=NULL;
 struct node* parentHead=NULL;
 unsigned long numOfNodes;
 
-struct node* newTwoSpecialNodes()
-{
-  struct node* twoSpecialnodes = (struct node*) malloc(2*sizeof(struct node));
-  twoSpecialnodes[0].key = 0;
-  twoSpecialnodes[0].value = 0;
-  twoSpecialnodes[0].lChild = NULL;
-  twoSpecialnodes[0].rChild = NULL;
-  twoSpecialnodes[1].key = 0;
-  twoSpecialnodes[1].value = 0;
-  twoSpecialnodes[1].lChild = NULL;
-  twoSpecialnodes[1].rChild = NULL;
-  return(twoSpecialnodes);
-}
-
 struct specialNode* newTwoSmallSpecialNodes()
 {
   struct specialNode* twoSmallSpecialNodes = (struct specialNode*) malloc(2*sizeof(struct specialNode));
@@ -39,6 +27,7 @@ struct specialNode* newTwoSmallSpecialNodes()
   return(twoSmallSpecialNodes);
 }
 
+#ifdef VALUE_PRESENT
 struct node* newInternalNode(unsigned long key, unsigned long value)
 {
   struct node* node = (struct node*) malloc(sizeof(struct node));
@@ -57,18 +46,37 @@ void createHeadNodes()
   grandParentHead->lChild = newInternalNode(ULONG_MAX, ULONG_MAX);
   parentHead = grandParentHead->lChild;
 }
+#else
+struct node* newInternalNode(unsigned long key)
+{
+  struct node* node = (struct node*) malloc(sizeof(struct node));
+  node->key = key;
+  struct specialNode* twoSmallSpecialNodes;
+  twoSmallSpecialNodes = newTwoSmallSpecialNodes();
+  node->lChild = (struct node*) &twoSmallSpecialNodes[0];
+  node->rChild = (struct node*) &twoSmallSpecialNodes[1];
+  return(node);
+}
+
+void createHeadNodes()
+{
+  grandParentHead = newInternalNode(ULONG_MAX);
+  grandParentHead->lChild = newInternalNode(ULONG_MAX);
+  parentHead = grandParentHead->lChild;
+}
+#endif
 
 bool getLockBit(struct node* p)
 {
   return (uintptr_t) p & 1;
 }
 
-#define getAddress(p) ((struct node*) ((uintptr_t) (struct node*) (p) & UINTPTR_MAX_XOR_WITH_1))
+//#define getAddress(p) ((struct node*) ((uintptr_t) (struct node*) (p) & UINTPTR_MAX_XOR_WITH_1))
 
-//static inline struct node* getAddress(struct node* p)
-//{
-//  return (struct node*)((uintptr_t) p & UINTPTR_MAX_XOR_WITH_1);
-//}
+static inline struct node* getAddress(struct node* p)
+{
+  return (struct node*)((uintptr_t) p & UINTPTR_MAX_XOR_WITH_1);
+}
 
 struct node* setLockBit(struct node* p)
 {
@@ -153,7 +161,11 @@ unsigned long lookup(unsigned long target)
       }
       else
       {
+        #ifdef VALUE_PRESENT
         return(node->value);
+        #else
+        return(1);
+        #endif
       }
     }
     if(lastRightNode->key == lastRightKey)
@@ -163,7 +175,11 @@ unsigned long lookup(unsigned long target)
   }
 }
 
+#ifdef VALUE_PRESENT
 bool insert(unsigned long insertKey, unsigned long insertValue)
+#else
+bool insert(unsigned long insertKey)
+#endif
 {
   struct node* pnode;
   struct node* node;
@@ -212,7 +228,12 @@ bool insert(unsigned long insertKey, unsigned long insertValue)
 
     if(!getLockBit(node)) //If locked restart
     {
+      #ifdef VALUE_PRESENT
       replaceNode = newInternalNode(insertKey, insertValue);
+      #else
+      replaceNode = newInternalNode(insertKey);
+      #endif
+
       if(pnode->lChild == node) //left case
       {
         if(pnode->lChild.compare_and_swap(replaceNode,node) == node)
@@ -349,7 +370,9 @@ bool remove(unsigned long deleteKey)
                         if(lockRChild(rnode))
                         {
                           node->key = rnode->key;
+                          #ifdef VALUE_PRESENT
                           node->value = rnode->value;
+                          #endif
                           rpnode->lChild = getAddress(rnode->rChild);
                           unlockLChild(pnode);
                           unlockLChild(node);
@@ -379,7 +402,9 @@ bool remove(unsigned long deleteKey)
                       if(lockRChild(rnode))
                       {
                         node->key = rnode->key;
+                        #ifdef VALUE_PRESENT
                         node->value = rnode->value;
+                        #endif
                         node->rChild = getAddress(rnode->rChild);
                         unlockLChild(pnode);
                         unlockLChild(node);
@@ -471,7 +496,9 @@ bool remove(unsigned long deleteKey)
                         if(lockRChild(rnode))
                         {
                           node->key = rnode->key;
+                          #ifdef VALUE_PRESENT
                           node->value = rnode->value;
+                          #endif
                           rpnode->lChild = getAddress(rnode->rChild);
                           unlockRChild(pnode);
                           unlockLChild(node);
@@ -501,7 +528,9 @@ bool remove(unsigned long deleteKey)
                       if(lockRChild(rnode))
                       {
                         node->key = rnode->key;
+                        #ifdef VALUE_PRESENT
                         node->value = rnode->value;
+                        #endif
                         node->rChild = getAddress(rnode->rChild);
                         unlockRChild(pnode);
                         unlockLChild(node);
