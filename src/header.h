@@ -11,7 +11,7 @@
 //#define UINTPTR_MAX_XOR_WITH_1 0xFFFFFFFFFFFFFFFE
 #define UINTPTR_MAX_XOR_WITH_1 (uintptr_t) (UINTPTR_MAX ^ 1)
 #define UINTPTR_MAX_XOR_WITH_3 (uintptr_t) (UINTPTR_MAX ^ 3)
-#define VALUE_PRESENT
+//#define VALUE_PRESENT
 //#define DEBUG_ON
 
 void createHeadNodes();
