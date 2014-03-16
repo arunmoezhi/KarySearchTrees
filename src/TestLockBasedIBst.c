@@ -11,7 +11,11 @@ double MOPS;
 struct threadArgs
 {
   int threadId;
-  unsigned int seed;
+  #ifdef USE_GSL
+  unsigned long lseed;
+  #else
+  unsigned int iseed;
+  #endif
 };
 
 struct timespec diff(timespec start, timespec end)
@@ -28,43 +32,85 @@ struct timespec diff(timespec start, timespec end)
 	}
 	return temp;
 }
-
+#ifdef USE_GSL
 void *operateOnTree(void* tArgs)
 {
   struct timespec s,e;
   int chooseOperation;
-  unsigned int seed;
+  unsigned long lseed;
   int threadId;
   threadId = ((struct threadArgs*) tArgs)->threadId;
-  seed = ((struct threadArgs*) tArgs)->seed;
+  lseed = ((struct threadArgs*) tArgs)->lseed;
+  unsigned int readCount=0;
+  unsigned int successfulReadCount=0;
+  const gsl_rng_type* T;
+  gsl_rng* r;
+  gsl_rng_env_setup();
+  T = gsl_rng_default;
+  r = gsl_rng_alloc(T);
+  gsl_rng_set(r,lseed);
+  clock_gettime(CLOCK_REALTIME,&s);
+  for(int i=0;i<iterations;i++)
+  {
+    chooseOperation = gsl_rng_get(r)%100;
+    if(chooseOperation < findPercent)
+    {
+      readCount++;
+      successfulReadCount += lookup(gsl_rng_get(r)%keyRange + 1);
+    }
+    else if (chooseOperation < insertPercent)
+    {
+      #ifdef VALUE_PRESENT
+      insert(gsl_rng_get(r)%keyRange + 1, 1);
+      #else
+      insert(gsl_rng_get(r)%keyRange + 1);
+      #endif
+    }
+    else
+    {
+      remove(gsl_rng_get(r)%keyRange + 1);
+    }
+  }
+  clock_gettime(CLOCK_REALTIME,&e);
+  timeArray[threadId] = (double) (diff(s,e).tv_sec * 1000000000 + diff(s,e).tv_nsec)/1000;
+}
+#else
+void *operateOnTree(void* tArgs)
+{
+  struct timespec s,e;
+  int chooseOperation;
+  unsigned int iseed;
+  int threadId;
+  threadId = ((struct threadArgs*) tArgs)->threadId;
+  iseed = ((struct threadArgs*) tArgs)->iseed;
   unsigned int readCount=0;
   unsigned int successfulReadCount=0;
   clock_gettime(CLOCK_REALTIME,&s);
   for(int i=0;i<iterations;i++)
   {
-    chooseOperation = rand_r(&seed)%100;
+    chooseOperation = rand_r(&iseed)%100;
     if(chooseOperation < findPercent)
     {
       readCount++;
-      successfulReadCount += lookup(rand_r(&seed)%keyRange + 1);
+      successfulReadCount += lookup(rand_r(&iseed)%keyRange + 1);
     }
     else if (chooseOperation < insertPercent)
     {
       #ifdef VALUE_PRESENT
-      insert(rand_r(&seed)%keyRange + 1, 1);
+      insert(rand_r(&iseed)%keyRange + 1, 1);
       #else
-      insert(rand_r(&seed)%keyRange + 1);
+      insert(rand_r(&iseed)%keyRange + 1);
       #endif
     }
     else
     {
-      remove(rand_r(&seed)%keyRange + 1);
+      remove(rand_r(&iseed)%keyRange + 1);
     }
   }
   clock_gettime(CLOCK_REALTIME,&e);
   timeArray[threadId] = (double) (diff(s,e).tv_sec * 1000000000 + diff(s,e).tv_nsec)/1000;
-  //printf("%lu,%lu\n",readCount,successfulReadCount);
 }
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -79,17 +125,35 @@ int main(int argc, char *argv[])
   keyRange = (unsigned long) pow(2,atoi(argv[6]));
   timeArray = (double*)malloc(NUM_OF_THREADS * sizeof(double));
   tArgs = (struct threadArgs**) malloc(NUM_OF_THREADS * sizeof(struct threadArgs*));
-  unsigned int seed = 1;
-  srand(seed);
+  #ifdef USE_GSL
+  unsigned long lseed = 1;
+  const gsl_rng_type* T;
+  gsl_rng* r;
+  gsl_rng_env_setup();
+  T = gsl_rng_default;
+  r = gsl_rng_alloc(T);
+  gsl_rng_set(r,lseed);
+  #else
+  unsigned int iseed = 1;
+  srand(iseed);
+  #endif
   createHeadNodes();
   
   int i=0;
   while(i < keyRange/2)
   {
     #ifdef VALUE_PRESENT
-    i += insert(rand_r(&seed)%keyRange + 1,1);
+    #ifdef USE_GSL
+    i += insert(gsl_rng_get(r)%keyRange + 1,1);
     #else
-    i += insert(rand_r(&seed)%keyRange + 1);
+    i += insert(rand_r(&iseed)%keyRange + 1,1);
+    #endif
+    #else
+    #ifdef USE_GSL
+    i += insert(gsl_rng_get(r)%keyRange + 1);
+    #else
+    i += insert(rand_r(&iseed)%keyRange + 1);
+    #endif
     #endif
   }
   #ifdef DEBUG_ON
@@ -101,7 +165,11 @@ int main(int argc, char *argv[])
   {
     tArgs[i] = (struct threadArgs*) malloc(sizeof(struct threadArgs));
     tArgs[i]->threadId = i;
-    tArgs[i]->seed = rand();
+    #ifdef USE_GSL
+    tArgs[i]->lseed = gsl_rng_get(r);
+    #else
+    tArgs[i]->iseed = rand_r(&iseed);
+    #endif
   }
 
   for(int i=0;i<NUM_OF_THREADS;i++)
@@ -114,7 +182,7 @@ int main(int argc, char *argv[])
   }
   #ifdef DEBUG_ON
   printf("Final Size: %lu\n",size());
-  printf("Inserted %d\tDeleted %d\n",(int) totalInserted,(int) totalDeleted);
+  //printf("Inserted %d\tDeleted %d\n",(int) totalInserted,(int) totalDeleted);
   printKeys();
   #endif
   for(int i=0;i<NUM_OF_THREADS;i++)
