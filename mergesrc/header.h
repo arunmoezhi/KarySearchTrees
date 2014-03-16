@@ -8,9 +8,12 @@
 #define __STDC_LIMIT_MACROS
 #include<stdint.h>
 #include<tbb/atomic.h>
+#include<gsl/gsl_rng.h>
+#include<gsl/gsl_randist.h>
 //#define UINTPTR_MAX_XOR_WITH_1 0xFFFFFFFFFFFFFFFE
 #define UINTPTR_MAX_XOR_WITH_1 (uintptr_t) (UINTPTR_MAX ^ 1)
 #define UINTPTR_MAX_XOR_WITH_3 (uintptr_t) (UINTPTR_MAX ^ 3)
+#define USE_GSL
 //#define VALUE_PRESENT
 //#define DEBUG_ON
 
